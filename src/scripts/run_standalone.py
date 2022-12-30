@@ -11,8 +11,8 @@ def main():
     x = Mask(sys.argv[1], comm=comm)
     
     # Plot the mask.
-    #plot_mask(x)
-    plot_ic_coords_dist(x)
+    plot_mask(x)
+    #plot_ic_coords_dist(x)
     
     # Save the mask.
-    #save_mask(x)
+    save_mask(x)

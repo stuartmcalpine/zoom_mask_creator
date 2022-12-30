@@ -5,6 +5,12 @@
 
 ## Zoom-in simulations mask creator
 
+<figure>
+    <img src="/examples/Sibelius_5Mpc.png"
+         alt="Sibelius 5Mpc region">
+    <figcaption>The Lagrangian particle positions (blue) and generated mask that envelops that region (red) for all the particles within R=5Mpc of the Milky Way in the Sibelius-DARK simulation at z=0 (blue ring)."</figcaption>
+</figure>
+
 ### Requirements
 
 * `OpenMPI` or other MPI library
