@@ -63,4 +63,8 @@ see [here](https://docs.h5py.org/en/stable/build.html#building-against-parallel-
 
 Once installed the `zoom-mask-creator` command will be available. The command expects one argument, a parameter file, e.g.,
 
-`zoom-mask-creator ./examples/Sibelius_5Mpc.yml`
+* `zoom-mask-creator ./examples/Sibelius_5Mpc.yml`
+
+or in MPI:
+
+* `mpirun -np XX zoom-mask-creator ./examples/Sibelius_5Mpc.yml`
