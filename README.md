@@ -8,7 +8,7 @@
 <figure>
     <img src="/examples/Sibelius_5Mpc.png"
          alt="Sibelius 5Mpc region">
-    <figcaption>The Lagrangian particle positions (blue) and generated mask that envelops that region (red) for all the particles within R=5Mpc of the Milky Way in the Sibelius-DARK simulation at z=0 (blue ring)."</figcaption>
+    <figcaption>The Lagrangian particle positions (blue) and generated mask that envelops that region (red) for all the particles within R=5Mpc of the Milky Way in the Sibelius-DARK simulation at z=0 (blue ring). The minimum bounding box, and minimum bounding box with equal sides are also shown. It is these mask positions that are stored as the output of the zoom-mask-creator function.</figcaption>
 </figure>
 
 ### Requirements
@@ -61,6 +61,6 @@ see [here](https://docs.h5py.org/en/stable/build.html#building-against-parallel-
 
 ## Usage
 
-Once intalled the `zoom-mask-creator` command will be avaliable. The command expects one argument, a parameter file, e.g.,
+Once installed the `zoom-mask-creator` command will be available. The command expects one argument, a parameter file, e.g.,
 
 `zoom-mask-creator ./examples/Sibelius_5Mpc.yml`
