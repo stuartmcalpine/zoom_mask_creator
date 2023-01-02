@@ -4,10 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zoom_mask_creator"
-description = "Make Lagrangian mask outlines for Virgo Consortium zoom-in simulations"
+description = "Make Lagrangian mask outlines for Virgo Consortium-style zoom-in simulations."
+readme = "README.md"
+requires-python = ">=3.8,<3.11"
 license = {text = "BSD 3-Clause License"}
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: BSD 3-Clause License",
 ]
 dependencies = [
     "numpy",
@@ -19,11 +24,13 @@ dependencies = [
     "pyread_eagle @ git+https://github.com/kyleaoman/pyread_eagle.git",
     "read_swift @ git+https://github.com/stuartmcalpine/read_swift.git"
 ]
-requires-python = ">=3.8,<3.11"
 version = "0.0.1"
+authors = [
+  { name="Stuart McAlpine", email="stuart.mcalpine@fysik.su.se" },
+]
 
 [tool.setuptools.packages.find]
-where = ["src"]  # list of folders that contain the packages (["."] by default)
+where = ["src"]
 
 [project.scripts]
 zoom-mask-creator = "scripts.run_standalone:main"

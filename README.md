@@ -18,7 +18,7 @@
 
 Recommended modules when working on COSMA7:
 
-* `module load gnu_comp/11.1.0 openmpi/4.1.4-romio-lustre parallel_hdf5/1.12.2 python/3.9.1-C7 `
+* `module load gnu_comp/11.1.0 openmpi/4.1.4-romio-lustre parallel_hdf5/1.12.2 python/3.9.1-C7`
 
 ### Installation
 
