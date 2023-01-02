@@ -33,4 +33,4 @@ authors = [
 where = ["src"]
 
 [project.scripts]
-zoom-mask-creator = "scripts.run_standalone:main"
+zoom-mask-creator = "zoom_mask_creator.scripts.run_standalone:main"
