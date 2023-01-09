@@ -29,6 +29,8 @@ in order to perform a resimulation of the region.
          alt="Sibelius 5Mpc region">
 </figure>
 
+## Installation
+
 ### Requirements
 
 * `OpenMPI` or other MPI library
@@ -38,7 +40,7 @@ Recommended modules when working on COSMA7:
 
 * `module load gnu_comp/11.1.0 openmpi/4.1.4 parallel_hdf5/1.12.0 python/3.9.1-C7`
 
-### Installation
+### Installation from source
 
 It is recommended you install the package within a virtual/conda environment.
 Or alternatively, if you are installing on a shared access machine, to your
