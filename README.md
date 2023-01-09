@@ -5,10 +5,28 @@
 
 ## Zoom-in simulations mask creator
 
+A simple script to find, and mask, the Lagrangian positions (positions in the
+ICs) of a set of particles read from a [Virgo
+Consortium](https://virgo.dur.ac.uk/)-like cosmological simulation. 
+
+The code is compatible with simulation outputs that can be read by
+[pyread_eagle](https://github.com/kyleaoman/pyread_eagle) or
+[read_swift](https://github.com/stuartmcalpine/read_swift).  
+
+The figure below shows an example. We want to know the Lagrangian positions of
+all dark matter particles within a radius of 5 Mpc from the Milky Way from the
+*Sibelius-DARK* simulation at redshift=0. The blue points are the computed
+Lagrangian positions of the dark matter particles, the red symbols highlight
+the constructed mask that outlines the Lagrangian region, and the white circle
+is shows the initial selection region at redshift=0.
+
+The mask can then be used to generate a "Particle Load" (using
+[zoom_particle_load_creator](https://github.com/stuartmcalpine/zoom_particle_load_creator))
+in order to perform a resimulation of the region.
+
 <figure>
     <img src="/examples/Sibelius_5Mpc.png"
          alt="Sibelius 5Mpc region">
-    <figcaption>The Lagrangian particle positions (blue) and generated mask that envelops that region (red) for all the particles within R=5Mpc of the Milky Way in the Sibelius-DARK simulation at z=0 (blue ring). The minimum bounding box, and minimum bounding box with equal sides are also shown. It is these mask positions that are stored as the output of the zoom-mask-creator function.</figcaption>
 </figure>
 
 ### Requirements
