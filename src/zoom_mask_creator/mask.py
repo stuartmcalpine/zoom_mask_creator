@@ -132,10 +132,10 @@ class Mask:
 
         # Convert particle counts to True/False mask
         mask = n_p >= self.params["min_num_per_cell"]
-
+        
         return mask, edges[0]  # edges is a 3-tuple
 
-    def _load_particles(self, padding_factor=1.1):
+    def _load_particles(self):
 
         # Load IDs of particles within target high-res region from snapshot.
         # Note that only particles assigned to current MPI rank are loaded,
@@ -155,9 +155,7 @@ class Mask:
         if self.comm_rank == 0:
             print(f"Loaded {ntot} total particles")
 
-    def _compute_mask(self, padding_factor=1.1):
-        if padding_factor < 1:
-            raise ValueError(f"Invalid value of padding_factor={padding_factor}!")
+    def _compute_mask(self):
 
         # Find the corners of a box enclosing all particles in the ICs.
         box, widths = self.compute_bounding_box(self.ic_coords)
@@ -183,12 +181,7 @@ class Mask:
         #
         # `edges` holds the spatial coordinate of the lower cell edges. By
         # construction, this is the same along all three dimensions.
-        #
-        # We make the mask larger than the actual particle extent, as a safety
-        # measure (**TODO**: check whether this is actually needed)
-        mask, edges = self.build_basic_mask(
-            self.ic_coords, np.max(widths) * padding_factor
-        )
+        mask, edges = self.build_basic_mask(self.ic_coords, np.max(widths))
         self.cell_size = edges[1] - edges[0]
 
         # We only need MPI rank 0 for the rest, since we are done working with
@@ -257,10 +250,10 @@ class Mask:
         The refinement is performed iteratively along all slices along the
         specified axis. It consists of the ndimage operations ...
 
-        The mask array (`self.mask`) is modified in place.
-
         Parameters
         ----------
+        mask : ndarray
+            The raw mask before refinement (modified in place)
         idim : int
             The perpendicular to which slices of the mask are to be processed
             (0: x, 1: y, 2: z)

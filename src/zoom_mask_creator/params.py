@@ -35,6 +35,7 @@ def read_param_file(param_file):
     params["topology_fill_holes"] = True
     params["topology_dilation_niter"] = 0
     params["topology_closing_niter"] = 0
+    params["select_from_vr"] = 0
 
     # Read param file.
     read_params = yaml.safe_load(open(param_file))
@@ -47,7 +48,6 @@ def read_param_file(param_file):
         "bits",
         "data_type",
         "divide_ids_by_two",
-        "select_from_vr",
         "output_dir",
     ]
     for att in required_params:

@@ -15,7 +15,7 @@ classifiers = [
     "License :: OSI Approved :: BSD 3-Clause License",
 ]
 dependencies = [
-    "numpy",
+    "numpy<1.24",
     "h5py",
     "pyaml",
     "scipy",
