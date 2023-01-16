@@ -5,28 +5,29 @@
 
 ## Zoom-in simulations mask creator
 
-A simple script to find, and mask, the Lagrangian positions (i.e., positions in the
-ICs) of a set of particles read from a [Virgo
-Consortium](https://virgo.dur.ac.uk/)-like cosmological simulation. 
+A script to compute the Lagrangian positions (i.e., positions in the initial
+conditions) of a set of particles at *z=0* from a  [Virgo
+Consortium](https://virgo.dur.ac.uk/)-like cosmological simulation. The
+continous region those particles occupy in the ICs is then masked, and stored,
+which can then go on to be used as input to generate a particle load for a
+"zoom-in" resimulation of the desired region.
 
 The code is compatible with simulation outputs that can be read by
 [pyread_eagle](https://github.com/kyleaoman/pyread_eagle) or
-[read_swift](https://github.com/stuartmcalpine/read_swift). Note we use the information from *Peano Hilbert* indexing in the ParticleIDs to find the Lagrangian positions, therefore the simulation must have used this indexing scheme.
+[read_swift](https://github.com/stuartmcalpine/read_swift). Crucially, the
+ParticleIDs in the simulation must have used *Peano Hilbert* indexing, which we
+use to find the Lagrangian positions.
 
-The figure below shows an example. We want to know the Lagrangian positions of
-all dark matter particles from the
-*Sibelius-DARK* simulation that are within a radius of 5 Mpc from the Milky Way at redshift=0. The blue points are the computed
-Lagrangian positions of the dark matter particles, the red symbols highlight
-the constructed mask that outlines the Lagrangian region the particles form, and the white circle
-is shows the size of the initial selection region at redshift=0 (note everything is in co-moving coordinates).
+This script partners with 
+[zoom_particle_load_creator](https://github.com/stuartmcalpine/zoom_particle_load_creator),
+which creates particle loads using masks generated from these scripts.
 
-The mask can then be used to generate a "Particle Load" (using
-[zoom_particle_load_creator](https://github.com/stuartmcalpine/zoom_particle_load_creator))
-in order to perform a resimulation of the region.
+Below is an example output of the code from the Eagle 100 Mpc cosmological
+simulation (see below). 
 
 <figure>
-    <img src="/examples/Sibelius_5Mpc.png"
-         alt="Sibelius 5Mpc region">
+    <img src="/docs/Eagle100_Group100.png"
+         alt="Eagle100_Group100">
 </figure>
 
 ## Installation
@@ -112,3 +113,18 @@ All the parameters of the run are stored in a single YAML file, see `./examples/
 | `select_from_vr` | Ignore ||
 | `output_dir` | Output directory to store mask ||
 | `topology_dilation_niter` | Leave as 1 ||
+
+### An example, Group 100 from the Eagle 100 Mpc cosmological simulation
+
+We are using `zoom-mask-creator` to generate a mask that incorporates the
+Lagrangian positions of all dark matter particles from the 
+
+
+Lagrangian positionsWe want to know the Lagrangian positions of all dark matter
+particles from the *Sibelius-DARK* simulation that are within a radius of 5 Mpc
+from the Milky Way at redshift=0. The blue points are the computed Lagrangian
+positions of the dark matter particles, the red symbols highlight the
+constructed mask that outlines the Lagrangian region the particles form, and
+the white circle is shows the size of the initial selection region at
+redshift=0 (note everything is in co-moving coordinates).
+
