@@ -49,6 +49,8 @@ def read_param_file(param_file):
         "data_type",
         "divide_ids_by_two",
         "output_dir",
+        "input_centre",
+        "shape",
     ]
     for att in required_params:
         if att not in read_params:
