@@ -67,11 +67,7 @@ Then reinstall `mpi4py` and `h5py` from source with MPI flags:
 
 * `MPICC=mpicc CC=mpicc HDF5_MPI="ON" python3 -m pip install --no-binary=mpi4py,h5py mpi4py h5py`
 
-If `pip` can't find your `HDF5` libraries automatically, e.g., `error: libhdf5.so: cannot open shared object file: No such file or directory`. You will have to specify the path to the HDF5 installation, i.e.,
-
-`HDF5_DIR=/path/to/hdf5/lib`
-
-see [here](https://docs.h5py.org/en/stable/build.html#building-against-parallel-hdf5) for more details.
+If `pip` can't find your `HDF5` libraries automatically, e.g., `error: libhdf5.so: cannot open shared object file: No such file or directory`. You will have to specify the path to the HDF5 installation, i.e., `HDF5_DIR=/path/to/hdf5/lib` (see [here](https://docs.h5py.org/en/stable/build.html#building-against-parallel-hdf5) for more details).
 
 For our COSMA7 setup, that will be:
 
