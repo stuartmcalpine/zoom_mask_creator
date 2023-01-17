@@ -83,7 +83,7 @@ or in MPI:
 
 * `mpirun -np XX zoom-mask-creator ./examples/Eagle100_Group100.yml`
 
-When you run the ``zoom-mask-creator` code, both a mask (in the form of a HDF5 file) and a plot of the mask get deposited into the `output_dir` directory. 
+When you run the `zoom-mask-creator` code, both a mask (in the form of a HDF5 file) and a plot of the mask get deposited into the `output_dir` directory. 
 
 ### Parameter file
 
