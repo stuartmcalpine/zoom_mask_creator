@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 from mpi4py import MPI
 from scipy import ndimage
@@ -140,13 +141,15 @@ class Mask:
         # Load IDs of particles within target high-res region from snapshot.
         # Note that only particles assigned to current MPI rank are loaded,
         # which may be none.
-        ids, dists = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
-        self.dists = dists
+        ids, self.dists = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
 
         # Find initial positions from particle IDs (recall that these are
         # really Peano-Hilbert indices). Coordinates are in the same units
         # as the box size, centred (and wrapped) on the high-res target region.
-        self.ic_coords = compute_ic_positions(ids, self.params, self.comm_rank)
+        if len(ids) > 0:
+            self.ic_coords = compute_ic_positions(ids, self.params, self.comm_rank)
+        else:
+            self.ic_coords = np.empty((0,3), dtype=np.float32)
 
         # How many total particles.
         ntot = len(self.ic_coords)
@@ -320,7 +323,7 @@ class Mask:
         # Find vertices of local particles (on this MPI rank). If there are
         # none, set lower (upper) vertices to very large (very negative)
         # numbers so that they will not influence the cross-MPI min/max.
-        n_part = r.shape[0]
+        n_part = len(r)
         box[0, :] = np.min(r, axis=0) if n_part > 0 else sys.float_info.max
         box[1, :] = np.max(r, axis=0) if n_part > 0 else -sys.float_info.max
 

@@ -5,11 +5,6 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Set up Matplotlib
-mpl.rcParams["text.usetex"] = True
-mpl.rcParams["font.family"] = "serif"
-mpl.rcParams["font.serif"] = "Palatino"
-
 def plot_ic_coords_dist(mask):
     raise NotImplementedError
     #assert len(mask.ic_coords) == len(mask.dists)
