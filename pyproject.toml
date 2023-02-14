@@ -22,7 +22,7 @@ dependencies = [
     "mpi4py",
     "matplotlib",
     "pyread_eagle @ git+https://github.com/kyleaoman/pyread_eagle.git",
-    "read_swift @ git+https://github.com/stuartmcalpine/read_swift.git"
+    "pyread_swift"
 ]
 version = "0.0.1"
 authors = [
