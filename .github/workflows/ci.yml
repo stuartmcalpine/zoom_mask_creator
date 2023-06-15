@@ -39,6 +39,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Install OpenMPI and HDF5 libs
+      - name: Install OpenMPI and HDF5
+        run: |
+          sudo apt-get update
+          sudo apt install -y libopenmpi-dev
+
       # Install dependencies.
       - name: Install package
         run: |
