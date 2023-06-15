@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "zoom_mask_creator"
 description = "Make Lagrangian mask outlines for Virgo Consortium-style zoom-in simulations."
 readme = "README.md"
-requires-python = ">=3.7,<3.11"
+requires-python = ">=3.7"
 license = {text = "BSD 3-Clause License"}
 classifiers = [
     "Programming Language :: Python :: 3.8",
