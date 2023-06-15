@@ -1,5 +1,8 @@
 import os
 
+import matplotlib
+matplotlib.use('Agg') 
+
 import matplotlib as mpl
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt

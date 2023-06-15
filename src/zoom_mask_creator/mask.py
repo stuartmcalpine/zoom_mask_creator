@@ -236,14 +236,16 @@ class Mask:
         )
 
         # Final sanity check: make sure that all particles are within cubic
-        # bounding box
+        # bounding box. This is allowed however, as max_per_cell > 1 can put particles 
+        # outside the region, so we leave this as a warning.
         if not np.all(box[0, :] - geo_centre >= -self.mask_extent / 2) or not np.all(
             box[1, :] - geo_centre <= self.mask_extent / 2
         ):
-            raise ValueError(
+            print("***Warning*** "
                 f"Cubic bounding box around final mask does not enclose all "
-                f"input particles!\n"
-                f"({box}\n   vs. {self.mask_extent:.4f})"
+                f"input particles!"
+                "This may just be the choice of max_per_cell, check output "
+                "plot to make sure mask looks sensible."
             )
 
     def refine_mask(self, mask, idim):

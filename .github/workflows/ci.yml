@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  # Triggers when push/pull-request made to the main branch.
+  pull_request:
+    branches:
+      - main  
+  push:
+    branches:
+      - main
+
+# List of jobs for this workflow.
+jobs:
+
+  ci-build:
+
+    # Our strategy lists the OS and Python versions we want to test on.
+    strategy:
+
+      # Don't quit all jobs if only one job fails.
+      fail-fast: false
+      
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        os: ["ubuntu-latest"]
+
+    # What operating system is this job running on?
+    runs-on: ${{ matrix.os }}
+
+    # Our CI steps for this job.
+    steps:
+      # Check out this repository code.
+      - name: Check out repository code
+        uses: actions/checkout@v3
+
+      # Install Python.
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # Install dependencies.
+      - name: Install package
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install .

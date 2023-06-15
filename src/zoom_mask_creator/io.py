@@ -14,7 +14,7 @@ except ImportError:
 
 # Do we have a swift read routine?
 try:
-    from read_swift import SwiftSnapshot
+    from pyread_swift import SwiftSnapshot
 except ImportError:
     HAVE_SWIFT = False
 
@@ -163,10 +163,10 @@ def load_particles(params, comm, comm_rank, comm_size, return_dists=True):
     elif params["data_type"].lower() == "swift":
         assert HAVE_SWIFT, "No SWIFT read routine found"
         snap = SwiftSnapshot(params["snap_file"], comm=comm)
-        params["bs"] = float(snap.HEADER["BoxSize"])
-        params["h_factor"] = float(snap.COSMOLOGY["h"])
+        params["bs"] = float(snap.header["BoxSize"])
+        params["h_factor"] = float(snap.header["h"])
         params["length_unit"] = "Mpc"
-        params["redshift"] = snap.HEADER["Redshift"]
+        params["redshift"] = snap.header["Redshift"]
         snap.select_region(1, *load_region.T.flatten())
         snap.split_selection()
 
