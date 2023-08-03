@@ -141,7 +141,7 @@ class Mask:
         # Load IDs of particles within target high-res region from snapshot.
         # Note that only particles assigned to current MPI rank are loaded,
         # which may be none.
-        ids, self.dists = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
+        ids = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
 
         # Find initial positions from particle IDs (recall that these are
         # really Peano-Hilbert indices). Coordinates are in the same units

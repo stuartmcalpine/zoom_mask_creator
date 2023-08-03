@@ -120,7 +120,7 @@ def _convert_lengths_to_inverse_h(params):
 
     params["length_unit"] = 'Mpc/h'
 
-def load_particles(params, comm, comm_rank, comm_size, return_dists=True):
+def load_particles(params, comm, comm_rank, comm_size):
     """
     Load the dark matter ParticleIDs from the target snapshot.
 
@@ -231,10 +231,7 @@ def load_particles(params, comm, comm_rank, comm_size, return_dists=True):
     if params["data_type"].lower() == "swift":
         _convert_lengths_to_inverse_h(params)
 
-    if return_dists:
-        return ids, dists[mask]
-    else:
-        return ids
+    return ids
 
 
 def save_mask(mask):

@@ -1,29 +1,14 @@
 import os
 
 import matplotlib
-matplotlib.use('Agg') 
+
+matplotlib.use("Agg")
 
 import matplotlib as mpl
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_ic_coords_dist(mask):
-    raise NotImplementedError
-    #assert len(mask.ic_coords) == len(mask.dists)
-
-    #ic_dists = np.linalg.norm(mask.ic_coords, axis=1)
-
-    #for lo, hi in zip([0,0,2.5], [2.5,5.,5.]):
-    #    m = np.where((mask.dists > lo) & (mask.dists < hi))[0]
-    #    H, bin_edges = np.histogram(ic_dists[m], bins=np.arange(0, np.max(ic_dists), 0.1))
-    #    cents = (bin_edges[1:] + bin_edges[:-1]) / 2.
-    #    plt.plot(cents, H/np.max(H), label=f"{lo} < R < {hi}")
-    #plt.legend()
-    #plt.xlabel('IC dist')
-    #plt.tight_layout(pad=0.1)
-    #plt.savefig('temp.png')
-    #plt.close()
 
 def plot_mask(mask, max_npart_per_rank=int(1e5)):
     """
@@ -164,6 +149,19 @@ def plot_mask(mask, max_npart_per_rank=int(1e5)):
                         "linewidth": 0.3,
                     },
                 )
+        # Plot target resolution cuboid/slab
+        else:
+            dim = mask.params["dim"]
+            square = patches.Rectangle(
+                (-dim[xx] / 2.0, -dim[yy] / 2.0),
+                dim[xx],
+                dim[yy],
+                linewidth=1,
+                edgecolor="grey",
+                facecolor="none",
+            )
+            ax.add_patch(square)
+
     # Save the plot
     plt.subplots_adjust(left=0.05, right=0.99, bottom=0.15, top=0.99)
     plotloc = os.path.join(mask.params["output_dir"], mask.params["fname"]) + ".png"

@@ -1,5 +1,5 @@
 from zoom_mask_creator.mask import Mask
-from zoom_mask_creator.plot import plot_mask, plot_ic_coords_dist
+from zoom_mask_creator.plot import plot_mask
 from zoom_mask_creator.io import save_mask
 from mpi4py import MPI
 
@@ -12,7 +12,6 @@ def main():
     
     # Plot the mask.
     plot_mask(x)
-    #plot_ic_coords_dist(x)
     
     # Save the mask.
     save_mask(x)
