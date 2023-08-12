@@ -35,7 +35,6 @@ def read_param_file(param_file):
     params["topology_fill_holes"] = True
     params["topology_dilation_niter"] = 0
     params["topology_closing_niter"] = 0
-    params["select_from_vr"] = 0
 
     # Read param file.
     read_params = yaml.safe_load(open(param_file))
@@ -63,59 +62,23 @@ def read_param_file(param_file):
     for att, v in read_params.items():
         params[att] = v
 
-    # Run checks for automatic group selection
-    if params["select_from_vr"]:
-        raise NotImplementedError
-
-        # params['shape'] = 'sphere'
-        # requirements = [
-        #    ('group_number', 'a group number to select'),
-        #    ('vr_file',
-        #     'a Velociraptor catalogue to select groups from'),
-        #    ('sort_rule', 'the method for halo sorting')
-        #    ]
-        # for req in requirements:
-        #    if not req[0] in params.keys():
-        #        raise KeyError(f"Need to provide {req[1]}!")
-
-        ## Make sure that we have a positive high-res region size
-        # if 'highres_radius_r200' not in params.keys():
-        #    params['highres_radius_r200'] = 0
-        # if 'highres_radius_r500' not in params.keys():
-        #    params['highres_radius_r500'] = 0
-        # if max(params['highres_radius_r200'],
-        #       params['highres_radius_r500']) <= 0:
-        #    raise KeyError(
-        #        "At least one of 'highres_radius_r200' and "
-        #        "highres_radius_r500' must be positive!")
-
-        ## Set defaults for optional parameters
-        # params['highres_radius_min'] = 0
-        # params['highres_radius_buffer'] = 0
-
-    else:
-        # Consistency checks for manual target region selection
-        if "input_centre" not in params.keys():
-            raise KeyError(
-                "Need to provide coordinates for the input_centre of the "
-                "high-resolution region."
-            )
-        if "shape" not in params.keys():
-            raise KeyError("Need to specify the shape of the target region!")
-        if params["shape"] in ["cuboid", "slab"] and "dim" not in params.keys():
-            raise KeyError(
-                f"Need to provide dimensions of {params['shape']} "
-                f"high-resolution region."
-            )
-        if params["shape"] == "sphere" and "radius" not in params.keys():
-            raise KeyError(
-                "Need to provide the radius of target high-resolution " "sphere!"
-            )
-
-    # If desired, find the halo to center the high-resolution on
-    if params["select_from_vr"]:
-        raise NotImplementedError
-        #params["input_centre"], self.params["radius"] = self.find_highres_sphere()
+    # Consistency checks for manual target region selection
+    if "input_centre" not in params.keys():
+        raise KeyError(
+            "Need to provide coordinates for the input_centre of the "
+            "high-resolution region."
+        )
+    if "shape" not in params.keys():
+        raise KeyError("Need to specify the shape of the target region!")
+    if params["shape"] in ["cuboid", "slab"] and "dim" not in params.keys():
+        raise KeyError(
+            f"Need to provide dimensions of {params['shape']} "
+            f"high-resolution region."
+        )
+    if params["shape"] == "sphere" and "radius" not in params.keys():
+        raise KeyError(
+            "Need to provide the radius of target high-resolution " "sphere!"
+        )
 
     # Convert coordinates and cuboid/slab dimensions to ndarray
     params["input_centre"] = np.array(params["input_centre"], dtype="f8")

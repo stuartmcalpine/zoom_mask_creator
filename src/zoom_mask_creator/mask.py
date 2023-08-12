@@ -214,6 +214,16 @@ class Mask:
         self.mask_box[0, :] -= self.cell_size * 0.5
         self.mask_box[1, :] += self.cell_size * 0.5
         mask_widths += self.cell_size
+
+        # Special case of slab
+        if self.params["shape"] == "slab":
+            self.params["slab_dim"] = np.argmin(mask_widths)
+            for ii in range(3):
+                if ii == self.params["slab_dim"]:
+                    continue
+                mask_widths[ii] = self.params["bs"] 
+
+        self.mask_widths = mask_widths
         self.mask_extent = np.max(mask_widths)
 
         print(

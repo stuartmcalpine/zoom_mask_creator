@@ -278,8 +278,13 @@ def save_mask(mask):
         ds.attrs.create("grid_cell_width", mask.cell_size)
         if mask.params["shape"] in ["cuboid", "slab"]:
             high_res_volume = np.prod(mask.params["dim"])
+
+            if mask.params["shape"] == "slab":
+                ds.attrs.create("slab_dim", mask.params["slab_dim"])
         else:
             high_res_volume = 4 / 3.0 * np.pi * mask.params["radius"] ** 3.0
         ds.attrs.create("high_res_volume", high_res_volume)
+        ds.attrs.create("mask_widths", mask.mask_widths)
+        ds.attrs.create("shape", mask.params["shape"])
 
     print(f"Saved mask data to file `{outloc}`.")
