@@ -76,6 +76,13 @@ def read_param_file(param_file):
         for att in _required:
             if att not in params["peano"].keys():
                 raise ValueError(f"Missing param peano:{att}")
+    elif params["ics"]["ic_type"] == "map_to_ics":
+        _required = ["path"]
+        if "map_to_ics" not in params.keys():
+            raise ValueError(f"Need [map_to_ics] section with {_required}")
+        for att in _required:
+            if att not in params["map_to_ics"].keys():
+                raise ValueError(f"Missing params map_to_ics:{att}")
 
     # Checks
     if params["region"]["shape"] not in ["sphere", "cuboid", "slab"]:
@@ -95,7 +102,7 @@ def read_param_file(param_file):
     if not os.path.isfile(params["snapshot"]["path"]):
         raise FileNotFoundError(f"{params['snapshot']['path']} not found")
 
-    _allowed_ic_types = ["use_peano_ids"]
+    _allowed_ic_types = ["use_peano_ids","map_to_ics"]
     if params["ics"]["ic_type"] not in _allowed_ic_types:
         raise ValueError(f"Allowed ic tyoes are {_allowed_ic_types}")
 
@@ -107,7 +114,7 @@ def read_param_file(param_file):
         params["region"]["dim"] = np.array(params["region"]["dim"], dtype="f8")
 
     # Create the output directory if it does not exist yet
-    # if not os.path.isdir(params["output_dir"]):
-    #    os.makedirs(params["output_dir"])
+    if not os.path.isdir(params["output"]["path"]):
+        os.makedirs(params["output"]["path"])
 
     return params

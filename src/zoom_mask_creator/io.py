@@ -3,6 +3,8 @@ import os
 import h5py
 import numpy as np
 
+from .map import map_to_ics 
+
 HAVE_EAGLE = True
 HAVE_SWIFT = True
 
@@ -124,7 +126,7 @@ def _convert_lengths_to_inverse_h(params):
     }
 
     for cat in _to_change.keys():
-        for att in _to_change[cat].keys():
+        for att in _to_change[cat]:
             if att in params[cat].keys():
                 params[cat][att] *= h
 
@@ -231,6 +233,13 @@ def load_particles(params, comm, comm_rank, comm_size):
     del coords
     ids = snap.read_dataset(1, "ParticleIDs")[mask]
 
+    # If the snapshot is from a user-friendly SWIFT simulation, all
+    # lengths are in 'h-free' coordinates. Unfortunately, the ICs still
+    # assume 'h^-1' units, so for consistency we now have to multiply
+    # h factor back in...
+    if params["snapshot"]["data_type"].lower() == "swift":
+        _convert_lengths_to_inverse_h(params)
+
     if params["ics"]["ic_type"] == "use_peano_ids":
         # If IDs are Peano-Hilbert indices multiplied by two (as in e.g.
         # simulations with baryons), need to undo this multiplication here
@@ -239,16 +248,10 @@ def load_particles(params, comm, comm_rank, comm_size):
 
         print(f"[Rank {comm_rank}] Loaded {len(ids)} dark matter particles")
 
-        # If the snapshot is from a user-friendly SWIFT simulation, all
-        # lengths are in 'h-free' coordinates. Unfortunately, the ICs still
-        # assume 'h^-1' units, so for consistency we now have to multiply
-        # h factor back in...
-        if params["snapshot"]["data_type"].lower() == "swift":
-            _convert_lengths_to_inverse_h(params)
-    else:
-        raise NotImplementedError()
+        return ids
 
-    return ids
+    elif params["ics"]["ic_type"] == "map_to_ics":
+        return map_to_ics(ids, params["map_to_ics"]["path"])
 
 
 def save_mask(mask):

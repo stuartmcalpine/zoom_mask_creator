@@ -122,18 +122,25 @@ class Mask:
 
     def _load_particles(self):
 
-        # Load IDs of particles within target high-res region from snapshot.
-        # Note that only particles assigned to current MPI rank are loaded,
-        # which may be none.
-        ids = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
+        if self.params["ics"]["ic_type"] == "map_to_ics":
+            if self.comm_size > 1:
+                raise ValueError("No MPI with IC mapping")
 
-        # Find initial positions from particle IDs (recall that these are
-        # really Peano-Hilbert indices). Coordinates are in the same units
-        # as the box size, centred (and wrapped) on the high-res target region.
-        if len(ids) > 0:
-            self.ic_coords = compute_ic_positions(ids, self.params, self.comm_rank)
-        else:
-            self.ic_coords = np.empty((0, 3), dtype=np.float32)
+            self.ic_coords = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
+
+        elif self.params["ics"]["ic_type"] == "use_peano_ids":
+            # Load IDs of particles within target high-res region from snapshot.
+            # Note that only particles assigned to current MPI rank are loaded,
+            # which may be none.
+            ids = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
+
+            # Find initial positions from particle IDs (recall that these are
+            # really Peano-Hilbert indices). Coordinates are in the same units
+            # as the box size, centred (and wrapped) on the high-res target region.
+            if len(ids) > 0:
+                self.ic_coords = compute_ic_positions(ids, self.params, self.comm_rank)
+            else:
+                self.ic_coords = np.empty((0, 3), dtype=np.float32)
 
         # How many total particles.
         ntot = len(self.ic_coords)
