@@ -12,43 +12,16 @@ class Mask:
     def __init__(self, param_file, comm=None):
         """
         Class to construct and store a mask.
-    
+
         Upon instantiation, the parameter file is read and the mask is created.
-    
+
         Parameters
         ----------
-        param_file : string, optional
+        param_file : str
             The name of the YAML parameter file defining the mask. If None
             (default), a parsed parameter structure must be provided as
             `params` instead.
-        params : dict, optional
-            The input parameters
-        save : bool
-            Switch to directly save the generated mask as an HDF5 file. This is
-            True by default.
-    
-        Attributes
-        ----------
-        params : dict
-            The parameters of the run
-        cell_coords : ndarray(float) [N_sel, 3]
-            An array containing the relative 3D coordinates of the centres of
-            N_sel cubic cells. The volume within these cells is to be
-            re-simulated at high resolution. The origin of this coordinate system
-            is in general not the same as for the parent simulation
-            (see `self.mask_centre`).
-        mask_extent : int
-            The maximum length of the bounding box conatainig the mask cells            
-        mask_centre : ndarray(float) [3]
-            The origin of the mask coordinate system in the parent simulation
-            frame. In other words, these coordinates must be added to
-            `self.cell_coords` to obtain the cell positions in the parent
-            simulation. It is chosen as the geometric centre of the mask cells,
-            i.e. `self.cell_coords` extends equally far in the positive and
-            negative direction along each axis.
-        cell_size : float
-            The side length each mask cell. May be slightly different from
-            inputted choice.
+        comm : mpi4py communicator, optional
         """
 
         # MPI info.
@@ -70,8 +43,15 @@ class Mask:
         self._compute_mask()
 
     def _load_parameters(self, param_file):
+        """
+        Rank 0 reads the parameter file and shares it.
+
+        Parameters
+        ----------
+        param_file : str
+        """
+
         if self.comm_rank == 0:
-            # Read parameter file.
             params = read_param_file(param_file)
         else:
             params = None
@@ -86,9 +66,9 @@ class Mask:
         Build the basic mask for an input particle distribution.
 
         This is a cubic boolean array with an adaptively computed cell size and
-        extent that stretches by at least `min_width` in each dimension.
-        The mask value is True for any cells that contain at least the
-        specified threshold number of particles.
+        extent that stretches by at least `min_width` in each dimension.  The
+        mask value is True for any cells that contain at least the specified
+        threshold number of particles.
 
         The mask is based on particles on all MPI ranks.
 
@@ -116,11 +96,11 @@ class Mask:
         n_tot = len(r)
 
         # Find out how far from the origin we need to extend the mask
-        width = min(max_width, self.params["bs"])
+        width = min(max_width, self.params["snapshot"]["bs"])
 
         # Work out how many cells we need along each dimension so that the
         # cells remain below the specified threshold size
-        num_bins = int(np.ceil(2 * width / self.params["mask_cell_size"]))
+        num_bins = int(np.ceil(2 * width / self.params["mask"]["mask_cell_size"]))
 
         # Compute number of particles in each cell, across MPI ranks
         n_p, edges = np.histogramdd(r, bins=num_bins, range=[(-width, width)] * 3)
@@ -129,11 +109,15 @@ class Mask:
             n_tot = self.comm.allreduce(n_tot, op=MPI.SUM)
 
         # Make sure we found all the particles.
-        assert int(np.sum(n_p)) == n_tot, f"Did not find all particles, increase padding factor, binned: {int(np.sum(n_p))} should have: {len(r)}"
+        if int(np.sum(n_p)) != n_tot:
+            raise ValueError(
+                f"Did not find all particles, increase padding factor, "
+                f"binned: {int(np.sum(n_p))} should have: {len(r)}"
+            )
 
         # Convert particle counts to True/False mask
-        mask = n_p >= self.params["min_num_per_cell"]
-        
+        mask = n_p >= self.params["mask"]["min_num_per_cell"]
+
         return mask, edges[0]  # edges is a 3-tuple
 
     def _load_particles(self):
@@ -149,7 +133,7 @@ class Mask:
         if len(ids) > 0:
             self.ic_coords = compute_ic_positions(ids, self.params, self.comm_rank)
         else:
-            self.ic_coords = np.empty((0,3), dtype=np.float32)
+            self.ic_coords = np.empty((0, 3), dtype=np.float32)
 
         # How many total particles.
         ntot = len(self.ic_coords)
@@ -175,7 +159,7 @@ class Mask:
         self.ic_coords -= geo_centre
 
         # Also need to keep track of the mask centre in the original frame.
-        self.mask_centre = self.params["input_centre"] + geo_centre
+        self.mask_centre = self.params["region"]["coords"] + geo_centre
 
         # Build the basic mask. This is a cubic boolean array with an
         # adaptively computed cell size and extent that includes at least
@@ -216,12 +200,13 @@ class Mask:
         mask_widths += self.cell_size
 
         # Special case of slab
-        if self.params["shape"] == "slab":
-            self.params["slab_dim"] = np.argmin(mask_widths)
-            for ii in range(3):
-                if ii == self.params["slab_dim"]:
-                    continue
-                mask_widths[ii] = self.params["bs"] 
+        if self.params["region"]["shape"] == "slab":
+            raise NotImplementedError()
+            # self.params["region"]["slab_dim"] = np.argmin(mask_widths)
+            # for ii in range(3):
+            #    if ii == self.params["region"]["slab_dim"]:
+            #        continue
+            #    mask_widths[ii] = self.params["snapshot"]["bs"]
 
         self.mask_widths = mask_widths
         self.mask_extent = np.max(mask_widths)
@@ -246,12 +231,13 @@ class Mask:
         )
 
         # Final sanity check: make sure that all particles are within cubic
-        # bounding box. This is allowed however, as max_per_cell > 1 can put particles 
+        # bounding box. This is allowed however, as max_per_cell > 1 can put particles
         # outside the region, so we leave this as a warning.
         if not np.all(box[0, :] - geo_centre >= -self.mask_extent / 2) or not np.all(
             box[1, :] - geo_centre <= self.mask_extent / 2
         ):
-            print("***Warning*** "
+            print(
+                "***Warning*** "
                 f"Cubic bounding box around final mask does not enclose all "
                 f"input particles!"
                 "This may just be the choice of max_per_cell, check output "
@@ -293,16 +279,18 @@ class Mask:
                 raise ValueError(f"Invalid value idim={idim}!")
 
             # Step 1: fill holes in the mask
-            if self.params["topology_fill_holes"]:
+            if self.params["mask"]["topology_fill_holes"]:
                 mask[index] = ndimage.binary_fill_holes(mask[index]).astype(bool)
             # Step 2: regularize the morphology
-            if self.params["topology_dilation_niter"] > 0:
+            if self.params["mask"]["topology_dilation_niter"] > 0:
                 mask[index] = ndimage.binary_dilation(
-                    mask[index], iterations=self.params["topology_dilation_niter"]
+                    mask[index],
+                    iterations=self.params["mask"]["topology_dilation_niter"],
                 ).astype(bool)
-            if self.params["topology_closing_niter"] > 0:
+            if self.params["mask"]["topology_closing_niter"] > 0:
                 mask[index] = ndimage.binary_closing(
-                    mask[index], iterations=self.params["topology_closing_niter"]
+                    mask[index],
+                    iterations=self.params["mask"]["topology_closing_niter"],
                 ).astype(bool)
 
     def compute_bounding_box(self, r, serial_only=False):

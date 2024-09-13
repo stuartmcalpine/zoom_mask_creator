@@ -76,19 +76,18 @@ def _find_enclosing_frame(params, comm_rank):
         of the bounding region in the x, y, and z coordinates.
 
     """
-    input_centre = params["input_centre"]
     frame = np.zeros((2, 3))
 
     # If the target region is a sphere, find the enclosing cube
-    if params["shape"] == "sphere":
-        frame[0, :] = input_centre - params["radius"]
-        frame[1, :] = input_centre + params["radius"]
+    if params["region"]["shape"] == "sphere":
+        frame[0, :] = params["region"]["coords"] - params["region"]["radius"]
+        frame[1, :] = params["region"]["coords"] + params["region"]["radius"]
 
     # If the target region is a cuboid, simply transform from input_centre and
     # side length to lower and upper bounds along each coordinate
-    elif params["shape"] in ["cuboid", "slab"]:
-        frame[0, :] = input_centre - params["dim"] / 2.0
-        frame[1, :] = input_centre + params["dim"] / 2.0
+    elif params["region"]["shape"] in ["cuboid", "slab"]:
+        frame[0, :] = params["region"]["coords"] - params["region"]["dim"] / 2.0
+        frame[1, :] = params["region"]["coords"] + params["region"]["dim"] / 2.0
 
     if comm_rank == 0:
         print(
@@ -104,7 +103,7 @@ def _find_enclosing_frame(params, comm_rank):
 def _convert_lengths_to_inverse_h(params):
     """
     Convert length parameters from h-free to 'h^-1' units (for IC-GEN).
-    
+
     Modifies the length parameters in the 'params' dict directly.
 
     Parameters
@@ -112,13 +111,25 @@ def _convert_lengths_to_inverse_h(params):
     params : dict
         The parameters of the run
     """
-    h = params["h_factor"]
 
-    for att in ["radius", "dim", "input_centre", "bs", "mask_cell_size"]:
-        if att in params.keys():
-            params[att] *= h
+    if params["snapshot"]["length_unit"] != "Mpc":
+        raise ValueError(f"Should not be converting this type")
 
-    params["length_unit"] = 'Mpc/h'
+    h = params["snapshot"]["h_factor"]
+
+    _to_change = {
+        "region": ["radius", "dim", "coords"],
+        "snapshot": ["bs"],
+        "mask": ["mask_cell_size"],
+    }
+
+    for cat in _to_change.keys():
+        for att in _to_change[cat].keys():
+            if att in params[cat].keys():
+                params[cat][att] *= h
+
+    params["snapshot"]["length_unit"] = "Mpc/h"
+
 
 def load_particles(params, comm, comm_rank, comm_size):
     """
@@ -145,34 +156,34 @@ def load_particles(params, comm, comm_rank, comm_size):
     load_region = _find_enclosing_frame(params, comm_rank)
 
     # To make life simpler, extractsome frequently used parameters
-    cen = params["input_centre"]
+    cen = params["region"]["coords"]
 
     # First step: set up particle reader and load metadata.
     # This is different for SWIFT and GADGET simulations, but subsequent
     # loading
-    if params["data_type"].lower() == "eagle":
+    if params["snapshot"]["data_type"].lower() == "eagle":
         assert HAVE_EAGLE, "No EAGLE read routine found"
-        snap = EagleSnapshot(params["snap_file"])
-        params["bs"] = float(snap.boxsize)
-        params["h_factor"] = 1.0
-        params["length_unit"] = "Mph/h"
-        params["redshift"] = -1.0
+        snap = EagleSnapshot(params["snapshot"]["path"])
+        params["snapshot"]["bs"] = float(snap.boxsize)
+        params["snapshot"]["h_factor"] = 1.0
+        params["snapshot"]["length_unit"] = "Mph/h"
+        params["snapshot"]["redshift"] = -1.0
         snap.select_region(*load_region.T.flatten())
         if comm_size > 1:
             snap.split_selection(comm_rank, comm_size)
-    elif params["data_type"].lower() == "swift":
+    elif params["snapshot"]["data_type"].lower() == "swift":
         assert HAVE_SWIFT, "No SWIFT read routine found"
-        snap = SwiftSnapshot(params["snap_file"], comm=comm)
-        params["bs"] = float(snap.header["BoxSize"])
-        params["h_factor"] = float(snap.header["h"])
-        params["length_unit"] = "Mpc"
-        params["redshift"] = snap.header["Redshift"]
+        snap = SwiftSnapshot(params["snapshot"]["path"], comm=comm)
+        params["snapshot"]["bs"] = float(snap.header["BoxSize"])
+        params["snapshot"]["h_factor"] = float(snap.header["h"])
+        params["snapshot"]["length_unit"] = "Mpc"
+        params["snapshot"]["redshift"] = snap.header["Redshift"]
         snap.select_region(1, *load_region.T.flatten())
         snap.split_selection()
 
     if comm_rank == 0:
-        params["zred_snap"] = params["redshift"]
-        print(f"Snapshot is at redshift z = {params['zred_snap']:.2f}.")
+        params["snapshot"]["zred_snap"] = params["snapshot"]["redshift"]
+        print(f"Snapshot is at redshift z = {params['snapshot']['zred_snap']:.2f}.")
 
     # Load DM particle IDs and coordinates (uniform across GADGET/SWIFT)
     if comm_rank == 0:
@@ -183,53 +194,59 @@ def load_particles(params, comm, comm_rank, comm_size):
     # the periodic box (done by first shifting them up by half a box,
     # taking the modulus with the box size in each dimension, and then
     # shifting it back down by half a box)
-    cen = params["input_centre"]
+    cen = params["region"]["coords"]
     coords -= cen
-    periodic_wrapping(coords, params["bs"])
+    periodic_wrapping(coords, params["snapshot"]["bs"])
 
     # Select particles within target region
-    if params['shape'] == "sphere":
+    if params["region"]["shape"] == "sphere":
         if comm_rank == 0:
             print(
                 f"Clipping to sphere around {cen}, with radius "
-                f"{params['radius']:.4f} {params['length_unit']}"
+                f"{params['region']['radius']:.4f} {params['snapshot']['length_unit']}"
             )
 
         dists = np.linalg.norm(coords, axis=1)
-        mask = np.where(dists <= params["radius"])[0]
+        mask = np.where(dists <= params["region"]["radius"])[0]
 
-    elif params["shape"] in ["cuboid", "slab"]:
+    elif params["region"]["shape"] in ["cuboid", "slab"]:
         if comm_rank == 0:
             print(
-                f"Clipping to {params['shape']} with "
-                f"dx={params['dim'][0]:.2f} {params['length_unit']}, "
-                f"dy={params['dim'][1]:.2f} {params['length_unit']}, "
-                f"dz={params['dim'][2]:.2f} {params['length_unit']}\n"
-                f"around {cen} {params['length_unit']}."
+                f"Clipping to {params['region']['shape']} with "
+                f"dx={params['region']['dim'][0]:.2f} {params['snapshot']['length_unit']}, "
+                f"dy={params['region']['dim'][1]:.2f} {params['snapshot']['length_unit']}, "
+                f"dz={params['region']['dim'][2]:.2f} {params['snapshot']['length_unit']}\n"
+                f"around {cen} {params['snapshot']['length_unit']}."
             )
 
         # To find particles within target cuboid, normalize each coordinate
         # offset by the maximum allowed extent in the corresponding
         # dimension, and find those where the result is between -1 and 1
         # for all three dimensions
-        mask = np.where(np.max(np.abs(coords / (params["dim"] / 2)), axis=1) <= 1)[0]
+        mask = np.where(
+            np.max(np.abs(coords / (params["region"]["dim"] / 2)), axis=1) <= 1
+        )[0]
 
     # Secondly, we need the IDs of particles lying in the mask region
+    del coords
     ids = snap.read_dataset(1, "ParticleIDs")[mask]
 
-    # If IDs are Peano-Hilbert indices multiplied by two (as in e.g.
-    # simulations with baryons), need to undo this multiplication here
-    if params["divide_ids_by_two"]:
-        ids = ids // 2
+    if params["ics"]["ic_type"] == "use_peano_ids":
+        # If IDs are Peano-Hilbert indices multiplied by two (as in e.g.
+        # simulations with baryons), need to undo this multiplication here
+        if params["peano"]["divide_ids_by_two"]:
+            ids = ids // 2
 
-    print(f"[Rank {comm_rank}] Loaded {len(ids)} dark matter particles")
+        print(f"[Rank {comm_rank}] Loaded {len(ids)} dark matter particles")
 
-    # If the snapshot is from a user-friendly SWIFT simulation, all
-    # lengths are in 'h-free' coordinates. Unfortunately, the ICs still
-    # assume 'h^-1' units, so for consistency we now have to multiply
-    # h factor back in...
-    if params["data_type"].lower() == "swift":
-        _convert_lengths_to_inverse_h(params)
+        # If the snapshot is from a user-friendly SWIFT simulation, all
+        # lengths are in 'h-free' coordinates. Unfortunately, the ICs still
+        # assume 'h^-1' units, so for consistency we now have to multiply
+        # h factor back in...
+        if params["snapshot"]["data_type"].lower() == "swift":
+            _convert_lengths_to_inverse_h(params)
+    else:
+        raise NotImplementedError()
 
     return ids
 
@@ -248,18 +265,19 @@ def save_mask(mask):
     mask : Mask object
         Has within it the cell positions from the computed mask
     """
-    
+
     if mask.comm_rank != 0:
         return
 
-    outloc = os.path.join(mask.params["output_dir"], mask.params["fname"]) + ".hdf5"
+    outloc = os.path.join(mask.params["output"]["path"], "mask") + ".hdf5"
 
     with h5py.File(outloc, "w") as f:
 
         # Push parameter file data as file attributes
         g = f.create_group("Params")
-        for param_attr in mask.params:
-            g.attrs.create(param_attr, mask.params[param_attr])
+        for cat in mask.params.keys():
+            for param_attr in mask.params[cat]:
+                g.attrs.create(f"{cat}:{param_attr}", mask.params[cat][param_attr])
 
         # Main output is the centres of selected mask cells
         ds = f.create_dataset(
@@ -276,15 +294,15 @@ def save_mask(mask):
         ds.attrs.create("bounding_length", mask.mask_extent)
         ds.attrs.create("geo_centre", mask.mask_centre)
         ds.attrs.create("grid_cell_width", mask.cell_size)
-        if mask.params["shape"] in ["cuboid", "slab"]:
-            high_res_volume = np.prod(mask.params["dim"])
+        if mask.params["region"]["shape"] in ["cuboid", "slab"]:
+            high_res_volume = np.prod(mask.params["region"]["dim"])
 
-            if mask.params["shape"] == "slab":
-                ds.attrs.create("slab_dim", mask.params["slab_dim"])
+            if mask.params["region"]["shape"] == "slab":
+                ds.attrs.create("slab_dim", mask.params["region"]["slab_dim"])
         else:
-            high_res_volume = 4 / 3.0 * np.pi * mask.params["radius"] ** 3.0
+            high_res_volume = 4 / 3.0 * np.pi * mask.params["region"]["radius"] ** 3.0
         ds.attrs.create("high_res_volume", high_res_volume)
         ds.attrs.create("mask_widths", mask.mask_widths)
-        ds.attrs.create("shape", mask.params["shape"])
+        ds.attrs.create("shape", mask.params["region"]["shape"])
 
     print(f"Saved mask data to file `{outloc}`.")

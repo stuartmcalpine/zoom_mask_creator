@@ -115,55 +115,51 @@ def plot_mask(mask, max_npart_per_rank=int(1e5)):
         ax.set_ylabel(f"${axis_labels[yy]}$ [$h^{{-1}}$ Mpc]")
 
         # Plot target high-resolution sphere (if that is our shape).
-        if mask.params["shape"] == "sphere":
-            phi = np.arange(0, 2.0001 * np.pi, 0.001)
-            radius = mask.params["radius"]
-            ax.plot(
-                np.cos(phi) * radius,
-                np.sin(phi) * radius,
-                color="white",
-                linestyle="-",
+        if mask.params["region"]["shape"] == "sphere":
+            circle = patches.Circle(
+                (0, 0),
+                mask.params["region"]["radius"],
                 linewidth=2,
+                edgecolor="black",
+                facecolor="none",
+                linestyle="--"
             )
-            ax.plot(
-                np.cos(phi) * radius,
-                np.sin(phi) * radius,
-                color="grey",
-                linestyle="--",
-                linewidth=1,
-            )
-            if ii == 0:
-                ax.text(
-                    0,
-                    mask.params["radius"],
-                    f"z = ${mask.params['zred_snap']:.2f}$",
-                    color="grey",
-                    fontsize=6,
-                    va="bottom",
-                    ha="center",
-                    bbox={
-                        "facecolor": "white",
-                        "edgecolor": "grey",
-                        "pad": 0.25,
-                        "boxstyle": "round",
-                        "linewidth": 0.3,
-                    },
-                )
+            ax.add_patch(circle)
+            text_where = mask.params["region"]["radius"]
         # Plot target resolution cuboid/slab
         else:
-            dim = mask.params["dim"]
+            dim = mask.params["region"]["dim"]
             square = patches.Rectangle(
                 (-dim[xx] / 2.0, -dim[yy] / 2.0),
                 dim[xx],
                 dim[yy],
-                linewidth=1,
-                edgecolor="grey",
+                linewidth=2,
+                edgecolor="black",
                 facecolor="none",
+                linestyle="--"
             )
             ax.add_patch(square)
+            text_where = dim[yy] / 2.0
+
+        ax.text(
+            0,
+            text_where,
+            f"z = ${mask.params['snapshot']['zred_snap']:.2f}$",
+            color="grey",
+            fontsize=6,
+            va="bottom",
+            ha="center",
+            bbox={
+                "facecolor": "white",
+                "edgecolor": "black",
+                "pad": 0.25,
+                "boxstyle": "round",
+                "linewidth": 0.3,
+            },
+        )
 
     # Save the plot
     plt.subplots_adjust(left=0.05, right=0.99, bottom=0.15, top=0.99)
-    plotloc = os.path.join(mask.params["output_dir"], mask.params["fname"]) + ".png"
+    plotloc = os.path.join(mask.params["output"]["path"], "mask_plot") + ".png"
     plt.savefig(plotloc, dpi=200)
     plt.close()

@@ -3,10 +3,24 @@ import os
 import numpy as np
 import yaml
 
+import toml
+
+# Default parameters
+_DEFAULTS = {
+    "region": {"shape": "sphere"},
+    "mask": {
+        "min_num_per_cell": 3,
+        "mask_cell_size": 3.0,
+        "topology_fill_holes": True,
+        "topology_dilation_niter": 0,
+        "topology_closing_niter": 0,
+    },
+}
+
 
 def read_param_file(param_file):
     """
-    Read parameters from a specified YAML file.
+    Read parameters from a specified TOML file.
 
     See template file `param_files/template.yml` for a full listing and
     description of parameters. The values are return in the 'params` dict.
@@ -28,65 +42,72 @@ def read_param_file(param_file):
     params : dict
     """
 
-    # Set default values for optional parameters
-    params = {}
-    params["min_num_per_cell"] = 3
-    params["mask_cell_size"] = 3.0
-    params["topology_fill_holes"] = True
-    params["topology_dilation_niter"] = 0
-    params["topology_closing_niter"] = 0
+    # Load parameters from TOML file
+    params = toml.load(param_file)
 
-    # Read param file.
-    read_params = yaml.safe_load(open(param_file))
+    # Fill in the defaults
+    for cat in _DEFAULTS.keys():
+        if cat in params.keys():
+            for att in _DEFAULTS[cat].keys():
+                if att not in params[cat].keys():
+                    params[cat][att] = _DEFAULTS[cat][att]
+        else:
+            params[cat] = _DEFAULTS[cat]
 
-    # Define a list of parameters that must be provided. An error
-    # is raised if they are not found in the YAML file.
-    required_params = [
-        "fname",
-        "snap_file",
-        "bits",
-        "data_type",
-        "divide_ids_by_two",
-        "output_dir",
-        "input_centre",
-        "shape",
-    ]
-    for att in required_params:
-        if att not in read_params:
-            raise KeyError(
-                f"Need to provide a value for {att} in the parameter "
-                f"file '{param_file}'!"
-            )
+    # Make sure we have the minimum required params
+    _required = {
+        "snapshot": ["path", "data_type"],
+        "ics": ["ic_type"],
+        "output": ["path"],
+    }
 
-    # Ingest.
-    for att, v in read_params.items():
-        params[att] = v
+    for cat in _required:
+        if cat not in params.keys():
+            raise ValueError(f"Missing catagory {cat}")
+        for att in _required[cat]:
+            if att not in params[cat].keys():
+                raise ValueError(f"Missing required param {cat}:{att}")
 
-    # Consistency checks for manual target region selection
-    if "input_centre" not in params.keys():
-        raise KeyError(
-            "Need to provide coordinates for the input_centre of the "
-            "high-resolution region."
-        )
-    if "shape" not in params.keys():
-        raise KeyError("Need to specify the shape of the target region!")
-    if params["shape"] in ["cuboid", "slab"] and "dim" not in params.keys():
-        raise KeyError(
-            f"Need to provide dimensions of {params['shape']} "
-            f"high-resolution region."
-        )
-    if params["shape"] == "sphere" and "radius" not in params.keys():
-        raise KeyError(
-            "Need to provide the radius of target high-resolution " "sphere!"
-        )
+    if params["ics"]["ic_type"] == "use_peano_ids":
+        _required = ["bits", "divide_ids_by_two"]
+
+        if "peano" not in params.keys():
+            raise ValueError(f"Need [peano] section with {_required}")
+        for att in _required:
+            if att not in params["peano"].keys():
+                raise ValueError(f"Missing param peano:{att}")
+
+    # Checks
+    if params["region"]["shape"] not in ["sphere", "cuboid", "slab"]:
+        raise ValueError(f"{params['region']['shape']} is a bad shape")
+
+    if params["region"]["shape"] == "sphere":
+        if "radius" not in params["region"].keys():
+            raise ValueError("Need a radius for region shape of sphere")
+    else:
+        if "dim" not in params["region"].keys():
+            raise ValueError("Need a dim for region shape of not sphere")
+
+    _allowed_data_types = ["swift", "eagle"]
+    if params["snapshot"]["data_type"] not in _allowed_data_types:
+        raise ValueError(f"Allowed datatypes are {_allowed_data_types}")
+
+    if not os.path.isfile(params["snapshot"]["path"]):
+        raise FileNotFoundError(f"{params['snapshot']['path']} not found")
+
+    _allowed_ic_types = ["use_peano_ids"]
+    if params["ics"]["ic_type"] not in _allowed_ic_types:
+        raise ValueError(f"Allowed ic tyoes are {_allowed_ic_types}")
 
     # Convert coordinates and cuboid/slab dimensions to ndarray
-    params["input_centre"] = np.array(params["input_centre"], dtype="f8")
-    if "dim" in params.keys():
-        params["dim"] = np.array(params["dim"], dtype="f8")
+    params["region"]["coords"] = np.array(params["region"]["coords"], dtype="f8")
+    if "dim" in params["region"].keys():
+        if len(params["region"]["dim"]) != 3:
+            raise ValueError("dim must be 3 dimentions [x,y,z]")
+        params["region"]["dim"] = np.array(params["region"]["dim"], dtype="f8")
 
     # Create the output directory if it does not exist yet
-    if not os.path.isdir(params["output_dir"]):
-        os.makedirs(params["output_dir"])
+    # if not os.path.isdir(params["output_dir"]):
+    #    os.makedirs(params["output_dir"])
 
     return params

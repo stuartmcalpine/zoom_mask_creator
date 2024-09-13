@@ -501,8 +501,7 @@ def compute_ic_positions(ids, params, comm_rank) -> np.ndarray:
         high-res region is at the origin.
     """
     print(
-        f"[Rank {comm_rank}] Computing initial positions of dark matter",
-        "particles..."
+        f"[Rank {comm_rank}] Computing initial positions of dark matter", "particles..."
     )
 
     # First, convert the (scalar) PH key for each particle back to a triple
@@ -510,25 +509,25 @@ def compute_ic_positions(ids, params, comm_rank) -> np.ndarray:
     # in x, y, z. This must use the same grid (bits value) as was used
     # when generating the ICs for the base simulation. An external utility
     # function is used to handle the PH algorithm.
-    x, y, z = peano_hilbert_key_inverses(ids, params["bits"])
+    x, y, z = peano_hilbert_key_inverses(ids, params["peano"]["bits"])
     ic_coords = np.vstack((x, y, z)).T
 
     # Make sure that we get consistent values for the coordinates
     ic_min, ic_max = np.min(ic_coords), np.max(ic_coords)
-    if ic_min < 0 or ic_max > 2 ** params["bits"]:
+    if ic_min < 0 or ic_max > 2 ** params["peano"]["bits"]:
         raise ValueError(
             f"Inconsistent range of quantized IC coordinates: {ic_min} - "
-            f"{ic_max} (allowed: 0 - {2**params['bits']})"
+            f"{ic_max} (allowed: 0 - {2**params['peano']['bits']})"
         )
 
     # Re-scale quantized coordinates to floating-point distances between
     # origin and centre of corresponding grid cell
-    cell_size = params["bs"] / 2 ** params["bits"]
+    cell_size = params["snapshot"]["bs"] / 2 ** params["peano"]["bits"]
     ic_coords = (ic_coords.astype("float") + 0.5) * cell_size
 
     # Shift coordinates to the centre of target high-resolution region and
     # apply periodic wrapping
-    ic_coords -= params["input_centre"]
-    periodic_wrapping(ic_coords, params["bs"])
+    ic_coords -= params["region"]["coords"]
+    periodic_wrapping(ic_coords, params["snapshot"]["bs"])
 
     return ic_coords.astype("f8")
