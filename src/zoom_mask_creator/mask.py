@@ -126,7 +126,9 @@ class Mask:
             if self.comm_size > 1:
                 raise ValueError("No MPI with IC mapping")
 
-            self.ic_coords = load_particles(self.params, self.comm, self.comm_rank, self.comm_size)
+            self.ic_coords = load_particles(
+                self.params, self.comm, self.comm_rank, self.comm_size
+            )
 
         elif self.params["ics"]["ic_type"] == "use_peano_ids":
             # Load IDs of particles within target high-res region from snapshot.
@@ -166,7 +168,7 @@ class Mask:
         self.ic_coords -= geo_centre
 
         # Also need to keep track of the mask centre in the original frame.
-        self.mask_centre = self.params["region"]["coords"] + geo_centre
+        self.mask_centre = geo_centre  # self.params["region"]["coords"] + geo_centre
 
         # Build the basic mask. This is a cubic boolean array with an
         # adaptively computed cell size and extent that includes at least

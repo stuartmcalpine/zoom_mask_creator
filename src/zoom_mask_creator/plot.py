@@ -122,7 +122,7 @@ def plot_mask(mask, max_npart_per_rank=int(1e5)):
                 linewidth=2,
                 edgecolor="black",
                 facecolor="none",
-                linestyle="--"
+                linestyle="--",
             )
             ax.add_patch(circle)
             text_where = mask.params["region"]["radius"]
@@ -136,7 +136,7 @@ def plot_mask(mask, max_npart_per_rank=int(1e5)):
                 linewidth=2,
                 edgecolor="black",
                 facecolor="none",
-                linestyle="--"
+                linestyle="--",
             )
             ax.add_patch(square)
             text_where = dim[yy] / 2.0

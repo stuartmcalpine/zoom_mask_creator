@@ -1,12 +1,17 @@
 import numpy as np
 import h5py
 
+
 def map_to_ics(ids, fname):
     """
     Find a given set of particles in an IC file, map, and find initial coordinates.
 
     Parameters
     ----------
+    ids : ndarray
+        List of ParticleIDs we want to match to
+    fname : str
+        Path to the IC file
     """
 
     # Load the ICs

@@ -34,8 +34,8 @@ def read_param_file(param_file):
 
     Parameters
     ----------
-    param_file : string
-        Path to YAML parameter file
+    param_file : str
+        Path to TOML parameter file
 
     Returns
     -------
@@ -83,6 +83,9 @@ def read_param_file(param_file):
         for att in _required:
             if att not in params["map_to_ics"].keys():
                 raise ValueError(f"Missing params map_to_ics:{att}")
+        # Needs to be swift snapshot for this mapping (assumed at least)
+        if params["snapshot"]["data_type"].lower() != "swift":
+            raise ValueError("Need to be swift snapshot to IC mapping")
 
     # Checks
     if params["region"]["shape"] not in ["sphere", "cuboid", "slab"]:
@@ -102,7 +105,7 @@ def read_param_file(param_file):
     if not os.path.isfile(params["snapshot"]["path"]):
         raise FileNotFoundError(f"{params['snapshot']['path']} not found")
 
-    _allowed_ic_types = ["use_peano_ids","map_to_ics"]
+    _allowed_ic_types = ["use_peano_ids", "map_to_ics"]
     if params["ics"]["ic_type"] not in _allowed_ic_types:
         raise ValueError(f"Allowed ic tyoes are {_allowed_ic_types}")
 

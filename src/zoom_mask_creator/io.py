@@ -3,7 +3,7 @@ import os
 import h5py
 import numpy as np
 
-from .map import map_to_ics 
+from .map import map_to_ics
 
 HAVE_EAGLE = True
 HAVE_SWIFT = True
@@ -128,6 +128,7 @@ def _convert_lengths_to_inverse_h(params):
     for cat in _to_change.keys():
         for att in _to_change[cat]:
             if att in params[cat].keys():
+                print(f"Converting {att} to h units")
                 params[cat][att] *= h
 
     params["snapshot"]["length_unit"] = "Mpc/h"
@@ -241,6 +242,7 @@ def load_particles(params, comm, comm_rank, comm_size):
         _convert_lengths_to_inverse_h(params)
 
     if params["ics"]["ic_type"] == "use_peano_ids":
+
         # If IDs are Peano-Hilbert indices multiplied by two (as in e.g.
         # simulations with baryons), need to undo this multiplication here
         if params["peano"]["divide_ids_by_two"]:
@@ -251,7 +253,13 @@ def load_particles(params, comm, comm_rank, comm_size):
         return ids
 
     elif params["ics"]["ic_type"] == "map_to_ics":
-        return map_to_ics(ids, params["map_to_ics"]["path"])
+        #  Multiple by h as only swift snapshots can get this far
+        ic_coords = (
+            map_to_ics(ids, params["map_to_ics"]["path"])
+            * params["snapshot"]["h_factor"]
+        )
+
+        return ic_coords
 
 
 def save_mask(mask):
