@@ -134,9 +134,52 @@ def _convert_lengths_to_inverse_h(params):
     params["snapshot"]["length_unit"] = "Mpc/h"
 
 
+def validate_snapshot_consistency(params, comm_rank):
+    """
+    Validate that all snapshot files have consistent properties
+    """
+    if len(params["snapshot"]["paths"]) <= 1:
+        return True
+
+    # Properties to check across files
+    boxsizes = []
+    h_factors = []
+    redshifts = []
+
+    for path in params["snapshot"]["paths"]:
+        if params["snapshot"]["data_type"].lower() == "eagle":
+            snap = EagleSnapshot(path)
+            boxsizes.append(float(snap.boxsize))
+            h_factors.append(1.0)  # EAGLE uses h=1
+            redshifts.append(-1.0)  # EAGLE doesn't store this
+        elif params["snapshot"]["data_type"].lower() == "swift":
+            snap = SwiftSnapshot(path, comm=None)  # Just for metadata
+            boxsizes.append(float(snap.header["BoxSize"]))
+            h_factors.append(float(snap.header["h"]))
+            redshifts.append(snap.header["Redshift"])
+
+    # Check consistency
+    if not np.allclose(boxsizes, boxsizes[0], rtol=1e-5):
+        if comm_rank == 0:
+            print("WARNING: Box sizes differ across snapshot files!")
+            print(f"Box sizes: {boxsizes}")
+
+    if not np.allclose(h_factors, h_factors[0], rtol=1e-5):
+        if comm_rank == 0:
+            print("WARNING: Hubble factors differ across snapshot files!")
+            print(f"h factors: {h_factors}")
+
+    if not np.allclose(redshifts, redshifts[0], rtol=1e-2):
+        if comm_rank == 0:
+            print("WARNING: Redshifts differ across snapshot files!")
+            print(f"Redshifts: {redshifts}")
+
+    return True
+
+
 def load_particles(params, comm, comm_rank, comm_size):
     """
-    Load the dark matter ParticleIDs from the target snapshot.
+    Load the dark matter ParticleIDs from multiple target snapshots.
 
     In addition, relevant metadata are also loaded and stored in the `params`
     dict.
@@ -151,53 +194,284 @@ def load_particles(params, comm, comm_rank, comm_size):
 
     Returns
     -------
-    ids : ndarray(int)
-        The Peano-Hilbert keys of the particles.
+    ids : ndarray(int) or ndarray(float) [N, 3]
+        The Peano-Hilbert keys of the particles or their coordinates in the ICs.
     """
 
     # Find cuboidal frame enclosing the *target* high-resolution region
     load_region = _find_enclosing_frame(params, comm_rank)
 
-    # To make life simpler, extractsome frequently used parameters
+    # Check snapshot consistency if we have multiple files
+    if len(params["snapshot"]["paths"]) > 1:
+        validate_snapshot_consistency(params, comm_rank)
+
+    # Handle different workflows depending on the IC type
+    if params["ics"]["ic_type"] == "use_peano_ids":
+        # For Peano-Hilbert IDs, we can just load and concatenate all IDs
+        all_ids = []
+
+        if comm_rank == 0:
+            print(f"Processing {len(params['snapshot']['paths'])} snapshot files")
+
+        # Process each snapshot file
+        for file_idx, snapshot_path in enumerate(params["snapshot"]["paths"]):
+            if comm_rank == 0:
+                print(
+                    f"\nProcessing file {file_idx+1}/{len(params['snapshot']['paths'])}: {snapshot_path}"
+                )
+
+            # Load particles from this file
+            file_ids = _load_particles_from_file(
+                snapshot_path,
+                params,
+                load_region,
+                file_idx,
+                len(params["snapshot"]["paths"]) - 1,
+                comm,
+                comm_rank,
+                comm_size,
+            )
+
+            # Handle Peano-Hilbert IDs if needed
+            if params["peano"].get("divide_ids_by_two", False):
+                file_ids = file_ids // 2
+
+            # Add this file's IDs to our collection
+            all_ids.append(file_ids)
+
+            if comm_rank == 0:
+                print(f"  Found {len(file_ids)} particles in file {file_idx+1}")
+
+        # Concatenate all particle IDs
+        if len(all_ids) > 0:
+            ids = np.concatenate(all_ids)
+        else:
+            ids = np.array([], dtype=np.int64)
+
+        if comm_rank == 0:
+            print(f"Total particles found across all files: {len(ids)}")
+
+        print(f"[Rank {comm_rank}] Loaded {len(ids)} dark matter particles")
+        return ids
+
+    elif params["ics"]["ic_type"] == "map_to_ics":
+        # For IC mapping, we need to process each snapshot-IC file pair
+        # and combine the coordinates at the end
+        all_ic_coords = []
+
+        # Check if we have one IC file per snapshot or just one IC file
+        if (
+            len(params["map_to_ics"]["paths"]) == 1
+            and len(params["snapshot"]["paths"]) > 1
+        ):
+            # One IC file for all snapshots - we'll load all IDs first, then map
+            all_ids = []
+
+            # Process each snapshot file to collect IDs
+            for file_idx, snapshot_path in enumerate(params["snapshot"]["paths"]):
+                if comm_rank == 0:
+                    print(
+                        f"\nProcessing file {file_idx+1}/{len(params['snapshot']['paths'])}: {snapshot_path}"
+                    )
+
+                # Load particles from this file
+                file_ids = _load_particles_from_file(
+                    snapshot_path,
+                    params,
+                    load_region,
+                    file_idx,
+                    len(params["snapshot"]["paths"]) - 1,
+                    comm,
+                    comm_rank,
+                    comm_size,
+                )
+
+                # Add this file's IDs to our collection
+                all_ids.append(file_ids)
+
+                if comm_rank == 0:
+                    print(f"  Found {len(file_ids)} particles in file {file_idx+1}")
+
+            # Concatenate all particle IDs
+            if len(all_ids) > 0:
+                ids = np.concatenate(all_ids)
+            else:
+                ids = np.array([], dtype=np.int64)
+
+            if comm_rank == 0:
+                print(f"Total particles found across all files: {len(ids)}")
+
+            # Map these IDs to coordinates using the single IC file
+            ic_coords = map_to_ics(ids, params["map_to_ics"]["paths"][0])
+
+            # Multiply by h as only swift snapshots can get this far
+            ic_coords *= params["snapshot"]["h_factor"]
+
+            return ic_coords
+
+        else:
+            # Multi-snapshot, multi-IC case
+            # Determine which snapshot maps to which IC file
+            if len(params["map_to_ics"]["paths"]) == len(params["snapshot"]["paths"]):
+                # One-to-one mapping
+                snapshot_to_ic_map = list(range(len(params["snapshot"]["paths"])))
+            else:
+                # Use modulo arithmetic to map snapshots to ICs
+                snapshot_to_ic_map = [
+                    i % len(params["map_to_ics"]["paths"])
+                    for i in range(len(params["snapshot"]["paths"]))
+                ]
+
+            if comm_rank == 0:
+                print(
+                    f"Processing {len(params['snapshot']['paths'])} snapshot files "
+                    f"with {len(params['map_to_ics']['paths'])} IC files"
+                )
+
+            # Process each snapshot file
+            for file_idx, snapshot_path in enumerate(params["snapshot"]["paths"]):
+                if comm_rank == 0:
+                    print(
+                        f"\nProcessing file {file_idx+1}/{len(params['snapshot']['paths'])}: {snapshot_path}"
+                    )
+
+                # Load particles from this file
+                file_ids = _load_particles_from_file(
+                    snapshot_path,
+                    params,
+                    load_region,
+                    file_idx,
+                    len(params["snapshot"]["paths"]) - 1,
+                    comm,
+                    comm_rank,
+                    comm_size,
+                )
+
+                if len(file_ids) == 0:
+                    if comm_rank == 0:
+                        print(f"  No particles found in file {file_idx+1}, skipping")
+                    continue
+
+                # Determine which IC file to use for this snapshot
+                ic_idx = snapshot_to_ic_map[file_idx]
+                ic_path = params["map_to_ics"]["paths"][ic_idx]
+
+                if comm_rank == 0:
+                    print(
+                        f"  Mapping {len(file_ids)} particles to IC file {ic_idx+1}: {ic_path}"
+                    )
+
+                # Map these IDs to coordinates
+                file_ic_coords = map_to_ics(file_ids, ic_path)
+
+                # Store these coordinates
+                all_ic_coords.append(file_ic_coords)
+
+                if comm_rank == 0:
+                    print(
+                        f"  Successfully mapped {len(file_ic_coords)} particles from file {file_idx+1}"
+                    )
+
+            # Combine all coordinates
+            if len(all_ic_coords) > 0:
+                ic_coords = np.vstack(all_ic_coords)
+            else:
+                ic_coords = np.zeros((0, 3), dtype=np.float32)
+
+            if comm_rank == 0:
+                print(f"Total particles mapped across all files: {len(ic_coords)}")
+
+            # Multiply by h as only swift snapshots can get this far
+            ic_coords *= params["snapshot"]["h_factor"]
+
+            return ic_coords
+
+
+def _load_particles_from_file(
+    snapshot_path,
+    params,
+    load_region,
+    file_idx,
+    last_file_idx,
+    comm,
+    comm_rank,
+    comm_size,
+):
+    """
+    Helper function to load particles from a single snapshot file.
+
+    Parameters
+    ----------
+    snapshot_path : str
+        Path to the snapshot file
+    params : dict
+        The parameters of the run
+    load_region : ndarray
+        The region to load particles from
+    file_idx : int
+        Index of the file being processed
+    last_file_idx : int
+        Index of the last file to be preocessed
+    comm : mpi4py comm
+    comm_rank : int
+    comm_size : int
+
+    Returns
+    -------
+    file_ids : ndarray(int)
+        The IDs of particles found in this file
+    """
+    # To make life simpler, extract frequently used parameters
     cen = params["region"]["coords"]
 
     # First step: set up particle reader and load metadata.
-    # This is different for SWIFT and GADGET simulations, but subsequent
-    # loading
+    # This is different for SWIFT and GADGET simulations
     if params["snapshot"]["data_type"].lower() == "eagle":
         assert HAVE_EAGLE, "No EAGLE read routine found"
-        snap = EagleSnapshot(params["snapshot"]["path"])
-        params["snapshot"]["bs"] = float(snap.boxsize)
-        params["snapshot"]["h_factor"] = 1.0
-        params["snapshot"]["length_unit"] = "Mph/h"
-        params["snapshot"]["redshift"] = -1.0
+        snap = EagleSnapshot(snapshot_path)
+
+        # Only set these params from the first file if they're not already set
+        if file_idx == 0:
+            params["snapshot"]["bs"] = float(snap.boxsize)
+            params["snapshot"]["h_factor"] = 1.0
+            params["snapshot"]["length_unit"] = "Mph/h"
+            params["snapshot"]["redshift"] = -1.0
+
         snap.select_region(*load_region.T.flatten())
         if comm_size > 1:
             snap.split_selection(comm_rank, comm_size)
+
     elif params["snapshot"]["data_type"].lower() == "swift":
         assert HAVE_SWIFT, "No SWIFT read routine found"
-        snap = SwiftSnapshot(params["snapshot"]["path"], comm=comm)
-        params["snapshot"]["bs"] = float(snap.header["BoxSize"])
-        params["snapshot"]["h_factor"] = float(snap.header["h"])
-        params["snapshot"]["length_unit"] = "Mpc"
-        params["snapshot"]["redshift"] = snap.header["Redshift"]
+        snap = SwiftSnapshot(snapshot_path, comm=comm)
+
+        # Only set these params from the first file if they're not already set
+        if file_idx == 0:
+            params["snapshot"]["bs"] = float(snap.header["BoxSize"])
+            params["snapshot"]["h_factor"] = float(snap.header["h"])
+            params["snapshot"]["length_unit"] = "Mpc"
+            params["snapshot"]["redshift"] = snap.header["Redshift"]
+
         snap.select_region(1, *load_region.T.flatten())
         snap.split_selection()
 
-    if comm_rank == 0:
+    if file_idx == 0 and comm_rank == 0:
         params["snapshot"]["zred_snap"] = params["snapshot"]["redshift"]
-        print(f"Snapshot is at redshift z = {params['snapshot']['zred_snap']:.2f}.")
+        print(
+            f"First snapshot is at redshift z = {params['snapshot']['zred_snap']:.2f}."
+        )
 
-    # Load DM particle IDs and coordinates (uniform across GADGET/SWIFT)
+    # Load DM particle coordinates and select within target region
     if comm_rank == 0:
-        print("\nLoading particle data...")
+        print(f"Loading particle data from {snapshot_path}...")
+
     coords = snap.read_dataset(1, "Coordinates")
 
-    # Shift coordinates relative to target centre, and wrap them to within
-    # the periodic box (done by first shifting them up by half a box,
-    # taking the modulus with the box size in each dimension, and then
-    # shifting it back down by half a box)
-    cen = params["region"]["coords"]
+    # Handle empty selection case
+    if len(coords) == 0:
+        return np.array([], dtype=np.int64)
+
+    # Shift coordinates relative to target centre and wrap
     coords -= cen
     periodic_wrapping(coords, params["snapshot"]["bs"])
 
@@ -230,36 +504,15 @@ def load_particles(params, comm, comm_rank, comm_size):
             np.max(np.abs(coords / (params["region"]["dim"] / 2)), axis=1) <= 1
         )[0]
 
-    # Secondly, we need the IDs of particles lying in the mask region
+    # Get particle IDs for the selected particles
     del coords
-    ids = snap.read_dataset(1, "ParticleIDs")[mask]
+    file_ids = snap.read_dataset(1, "ParticleIDs")[mask]
 
-    # If the snapshot is from a user-friendly SWIFT simulation, all
-    # lengths are in 'h-free' coordinates. Unfortunately, the ICs still
-    # assume 'h^-1' units, so for consistency we now have to multiply
-    # h factor back in...
-    if params["snapshot"]["data_type"].lower() == "swift":
+    # If the snapshot is from SWIFT in the first file, convert lengths to h^-1 units
+    if params["snapshot"]["data_type"].lower() == "swift" and file_idx == last_file_idx:
         _convert_lengths_to_inverse_h(params)
 
-    if params["ics"]["ic_type"] == "use_peano_ids":
-
-        # If IDs are Peano-Hilbert indices multiplied by two (as in e.g.
-        # simulations with baryons), need to undo this multiplication here
-        if params["peano"]["divide_ids_by_two"]:
-            ids = ids // 2
-
-        print(f"[Rank {comm_rank}] Loaded {len(ids)} dark matter particles")
-
-        return ids
-
-    elif params["ics"]["ic_type"] == "map_to_ics":
-        #  Multiple by h as only swift snapshots can get this far
-        ic_coords = (
-            map_to_ics(ids, params["map_to_ics"]["path"])
-            * params["snapshot"]["h_factor"]
-        )
-
-        return ic_coords
+    return file_ids
 
 
 def save_mask(mask):

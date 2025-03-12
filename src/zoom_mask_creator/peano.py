@@ -297,7 +297,7 @@ def peano_hilbert_keys_block(ix, iy, iz, bits):
     z = np.asarray(iz, dtype=np.int32)
 
     mask = 1 << (bits - 1)
-    key = np.zeros(x.shape, dtype=int64)
+    key = np.zeros(x.shape, dtype=np.int64)
     rotation = np.zeros(key.shape, dtype=np.int32)
     sense = np.ones(key.shape, dtype=np.int32)
 
@@ -380,9 +380,9 @@ def peano_hilbert_keys_from_coords(pos, boxsize, bits):
             i2 = n
 
         # Calculate coordinates
-        ix = floor(pos[i1:i2, 0] / cellsize).astype(np.int32)
-        iy = floor(pos[i1:i2, 1] / cellsize).astype(np.int32)
-        iz = floor(pos[i1:i2, 2] / cellsize).astype(np.int32)
+        ix = np.floor(pos[i1:i2, 0] / cellsize).astype(np.int32)
+        iy = np.floor(pos[i1:i2, 1] / cellsize).astype(np.int32)
+        iz = np.floor(pos[i1:i2, 2] / cellsize).astype(np.int32)
 
         # Calculate keys
         key[i1:i2] = peano_hilbert_keys_block(ix, iy, iz, bits)

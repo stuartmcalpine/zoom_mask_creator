@@ -56,7 +56,7 @@ def read_param_file(param_file):
 
     # Make sure we have the minimum required params
     _required = {
-        "snapshot": ["path", "data_type"],
+        "snapshot": ["paths", "data_type"],
         "ics": ["ic_type"],
         "output": ["path"],
     }
@@ -68,6 +68,15 @@ def read_param_file(param_file):
             if att not in params[cat].keys():
                 raise ValueError(f"Missing required param {cat}:{att}")
 
+    # Convert single path to list for uniform handling
+    if not isinstance(params["snapshot"]["paths"], list):
+        params["snapshot"]["paths"] = [params["snapshot"]["paths"]]
+
+    # Validate that each snapshot path exists
+    for path in params["snapshot"]["paths"]:
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Snapshot file {path} not found")
+
     if params["ics"]["ic_type"] == "use_peano_ids":
         _required = ["bits", "divide_ids_by_two"]
 
@@ -77,12 +86,22 @@ def read_param_file(param_file):
             if att not in params["peano"].keys():
                 raise ValueError(f"Missing param peano:{att}")
     elif params["ics"]["ic_type"] == "map_to_ics":
-        _required = ["path"]
+        _required = ["paths"]
         if "map_to_ics" not in params.keys():
             raise ValueError(f"Need [map_to_ics] section with {_required}")
         for att in _required:
             if att not in params["map_to_ics"].keys():
                 raise ValueError(f"Missing params map_to_ics:{att}")
+
+        # Convert single path to list for uniform handling
+        if not isinstance(params["map_to_ics"]["paths"], list):
+            params["map_to_ics"]["paths"] = [params["map_to_ics"]["paths"]]
+
+        # Validate each path exists
+        for path in params["map_to_ics"]["paths"]:
+            if not os.path.isfile(path):
+                raise FileNotFoundError(f"IC mapping file {path} not found")
+
         # Needs to be swift snapshot for this mapping (assumed at least)
         if params["snapshot"]["data_type"].lower() != "swift":
             raise ValueError("Need to be swift snapshot to IC mapping")
@@ -101,9 +120,6 @@ def read_param_file(param_file):
     _allowed_data_types = ["swift", "eagle"]
     if params["snapshot"]["data_type"] not in _allowed_data_types:
         raise ValueError(f"Allowed datatypes are {_allowed_data_types}")
-
-    if not os.path.isfile(params["snapshot"]["path"]):
-        raise FileNotFoundError(f"{params['snapshot']['path']} not found")
 
     _allowed_ic_types = ["use_peano_ids", "map_to_ics"]
     if params["ics"]["ic_type"] not in _allowed_ic_types:
