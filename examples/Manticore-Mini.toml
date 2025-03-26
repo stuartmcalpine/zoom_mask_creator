@@ -1,0 +1,28 @@
+[mask]
+mask_cell_size = 5
+min_num_per_cell = 3
+topology_fill_holes = true
+topology_dilation_niter = 0
+topology_closing_niter = 0
+
+[region]
+coords = [250, 250, 250]
+radius = 25.0
+shape = "sphere"
+
+[snapshot]
+paths = [
+    "/manticore_dir/2MPP_INNER_N128_DES_V2/R512/mcmc_0/swift_monofonic/snap_0001/snap_0001.0.hdf5",
+]
+data_type = "swift"
+
+[ics]
+ic_type = "map_to_ics"
+
+[map_to_ics]
+paths = [
+    "/manticore_dir/2MPP_INNER_N128_DES_V2/R512/mcmc_0/monofonic/ics_swift.hdf5",
+]
+
+[output]
+path = "masks/2MPP_INNER_N128_DES_V2/R512/RADIUS25MPC"
